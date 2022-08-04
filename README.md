@@ -10,7 +10,7 @@ I often need to convert an image into a `.ico` file and often turn to some web-b
 ## Usage
 
 ```
-icogen 1.0.0
+icogen 1.1.0
 Kenton Hamaluik <kenton@hamaluik.ca>
 Quickly convert image files into Windows .ico files
 
@@ -30,8 +30,9 @@ OPTIONS:
 
 ## Supported File Formats
 
-Basically what [image](https://crates.io/crates/image) supports for decoding:
+Basically what [image](https://crates.io/crates/image) supports for decoding, plus SVG:
 
+* SVG
 * PNG
 * JPEG
 * GIF
@@ -54,9 +55,5 @@ From [crates.io](https://crates.io/) (assuming you have [Rust](https://www.rust-
 $ cargo install icogen
 ```
 
-Otherwise, some pre-compied binaries should be available on GitHub: https://github.com/hamaluik/icogen/releases/
-
-## Future Work
-
-* SVG support
+Otherwise, some pre-compiled binaries should be available on GitHub: https://github.com/hamaluik/icogen/releases/
 

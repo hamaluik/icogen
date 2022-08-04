@@ -16,26 +16,29 @@ use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum};
 use image::codecs::ico::{IcoEncoder, IcoFrame};
 use image::io::Reader as ImageReader;
+use image::{DynamicImage, Rgba, RgbaImage};
 use rayon::prelude::*;
+use std::ffi::OsStr;
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 // re-create this type so we can derive ValueEnum on it
-/// Image resampling filter types
+/// Image re-sampling filter types
 #[derive(ValueEnum, Clone, Copy)]
 enum FilterType {
-    /// Nearest-neighbour resampling
+    /// Nearest-neighbour re-sampling
     Nearest,
 
-    /// Linear (triangle) resampling
+    /// Linear (triangle) re-sampling
     Triangle,
 
-    /// Cubic (Catmull-Rom) resampling
+    /// Cubic (Catmull-Rom) re-sampling
     Cubic,
 
-    /// Gaussian resampling
+    /// Gaussian re-sampling
     Gaussian,
 
-    /// Lanczos resampling with window 3
+    /// Lanczos re-sampling with window 3
     Lanczos,
 }
 
@@ -68,7 +71,7 @@ struct Cli {
     sizes: Vec<u32>,
 
     #[clap(short, long, value_enum, default_value_t = FilterType::default())]
-    /// Which resampling filter to use when resizing the image
+    /// Which re-sampling filter to use when resizing the image
     filter: FilterType,
 
     /// If enabled, any warnings will stop all processing
@@ -76,7 +79,16 @@ struct Cli {
     stop_on_warning: bool,
 }
 
-fn main() -> Result<()> {
+fn main() -> ExitCode {
+    if let Err(e) = try_main() {
+        eprintln!("{}: {e:#}", console::style("Error").red());
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn try_main() -> Result<()> {
     let Cli {
         image,
         mut sizes,
@@ -101,21 +113,6 @@ fn main() -> Result<()> {
         );
         if stop_on_warning {
             return Err(anyhow!("Program would overwrite existing icon"));
-        }
-    }
-
-    let im = ImageReader::open(&image)
-        .with_context(|| format!("Failed to open file '{}'", image.display()))?
-        .decode()
-        .with_context(|| "Failed to decode image!")?;
-
-    if im.width() != im.height() {
-        eprintln!(
-            "{}: your input image is not square, and will appear squished!",
-            console::style("Warning").yellow()
-        );
-        if stop_on_warning {
-            return Err(anyhow!("Input image isn't square!"));
         }
     }
 
@@ -152,6 +149,77 @@ fn main() -> Result<()> {
             console::style("Error").red(),
         );
         return Ok(());
+    }
+
+    let im: DynamicImage = if image
+        .extension()
+        .map(OsStr::to_str)
+        .flatten()
+        .map(str::to_lowercase)
+        == Some("svg".to_owned())
+    {
+        let mut opt = usvg::Options::default();
+        opt.resources_dir = std::fs::canonicalize(&image)
+            .ok()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf()));
+        opt.fontdb.load_system_fonts();
+
+        let svg = std::fs::read(&image)
+            .with_context(|| format!("Failed to read file '{}'", image.display()))?;
+        let rtree = usvg::Tree::from_data(&svg, &opt.to_ref())
+            .with_context(|| "Failed to parse SVG contents")?;
+
+        let pixmap_size = rtree.svg_node().size.to_screen_size();
+
+        if pixmap_size.width() != pixmap_size.height() {
+            eprintln!(
+                "{}: your input image is not square, and will appear squished!",
+                console::style("Warning").yellow()
+            );
+            if stop_on_warning {
+                return Err(anyhow!("Input image isn't square!"));
+            }
+        }
+
+        let mut pixmap = tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height())
+            .with_context(|| "Failed to create SVG Pixmap!")?;
+
+        let size = *sizes.iter().max().unwrap();
+        resvg::render(
+            &rtree,
+            usvg::FitTo::Size(size, size),
+            tiny_skia::Transform::default(),
+            pixmap.as_mut(),
+        )
+        .with_context(|| "Failed to render SVG!")?;
+
+        // copy it into an image buffer translating types as we go
+        // I'm sure there's faster ways of doing this but ¯\_(ツ)_/¯
+        let mut image = RgbaImage::new(size, size);
+        for y in 0..size {
+            for x in 0..size {
+                let pixel = pixmap.pixel(x, y).unwrap();
+                let pixel = Rgba([pixel.red(), pixel.green(), pixel.blue(), pixel.alpha()]);
+                image.put_pixel(x, y, pixel);
+            }
+        }
+
+        image.into()
+    } else {
+        ImageReader::open(&image)
+            .with_context(|| format!("Failed to open file '{}'", image.display()))?
+            .decode()
+            .with_context(|| "Failed to decode image!")?
+    };
+
+    if im.width() != im.height() {
+        eprintln!(
+            "{}: your input image is not square, and will appear squished!",
+            console::style("Warning").yellow()
+        );
+        if stop_on_warning {
+            return Err(anyhow!("Input image isn't square!"));
+        }
     }
 
     if im.width() < sizes.iter().max().map(|&v| v).unwrap_or_default() {
