@@ -16,6 +16,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::{Parser, ValueEnum};
 use image::codecs::ico::{IcoEncoder, IcoFrame};
 use image::io::Reader as ImageReader;
+use rayon::prelude::*;
 use std::path::PathBuf;
 
 // re-create this type so we can derive ValueEnum on it
@@ -175,7 +176,7 @@ fn main() -> Result<()> {
     );
 
     let frames: Vec<Vec<u8>> = sizes
-        .iter()
+        .par_iter()
         .map(|&sz| {
             let im = im.resize_exact(sz, sz, filter.into());
             im.to_rgba8().to_vec()
@@ -183,8 +184,8 @@ fn main() -> Result<()> {
         .collect();
 
     let frames: Result<Vec<IcoFrame>> = frames
-        .iter()
-        .zip(sizes.iter())
+        .par_iter()
+        .zip(sizes.par_iter())
         .map(|(buf, &sz)| {
             IcoFrame::as_png(buf.as_slice(), sz, sz, im.color())
                 .with_context(|| "Failed to encode frame")
