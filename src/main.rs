@@ -77,6 +77,10 @@ struct Cli {
     /// If enabled, any warnings will stop all processing
     #[clap(long)]
     stop_on_warning: bool,
+
+    /// The output file to write to, defaults to "<filename>.ico"
+    #[clap(short, long)]
+    out: Option<PathBuf>,
 }
 
 fn main() -> ExitCode {
@@ -94,6 +98,7 @@ fn try_main() -> Result<()> {
         mut sizes,
         filter,
         stop_on_warning,
+        out,
     } = Cli::parse();
 
     sizes.sort();
@@ -102,8 +107,10 @@ fn try_main() -> Result<()> {
         return Err(anyhow!("Path '{}' isn't a file!", image.display()));
     }
 
-    let output = image.file_stem().unwrap().to_string_lossy().to_string();
-    let output = PathBuf::from(format!("{output}.ico"));
+    let output = out.unwrap_or_else(|| {
+        let output = image.file_stem().unwrap().to_string_lossy().to_string();
+        PathBuf::from(format!("{output}.ico"))
+    });
 
     if output.exists() {
         eprintln!(

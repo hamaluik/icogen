@@ -1,6 +1,6 @@
 [package]
 name = "icogen"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 authors = ["Kenton Hamaluik <kenton@hamaluik.ca>"]
 description = "Quickly convert image files into Windows .ico files"

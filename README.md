@@ -10,7 +10,7 @@ I often need to convert an image into a `.ico` file and often turn to some web-b
 ## Usage
 
 ```
-icogen 1.1.0
+icogen 1.2.0
 Kenton Hamaluik <kenton@hamaluik.ca>
 Quickly convert image files into Windows .ico files
 
@@ -23,6 +23,7 @@ ARGS:
 OPTIONS:
     -f, --filter <FILTER>    Which resampling filter to use when resizing the image [default: cubic] [possible values: nearest, triangle, cubic, gaussian, lanczos]
     -h, --help               Print help information
+    -o, --out <OUT>          The output file to write to, defaults to "<filename>.ico"
     -s, --sizes <SIZES>      What sizes of icon to generate [default: 16 20 24 32 40 48 64 96 128 256]
         --stop-on-warning    If enabled, any warnings will stop all processing
     -V, --version            Print version information
